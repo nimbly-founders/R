@@ -1,0 +1,200 @@
+---
+title: "final_project"
+author: "Vaibhav Bhatt"
+date: "12/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r problem_statement}
+# business problem
+
+```
+
+The purpose of the project is to build a model that correctly identifies the species of the iris flower based on the measurement of the flower's petal and sepal. The dataset contains 150 observations of iris flowers. There are four columns of measurements of the flowers in centimeters. The fifth column is the species of the flower observed. All observed flowers belong to one of three species
+
+```{r packages, include=FALSE}
+library(caret)
+```
+
+```{r load_data}
+
+#loading data
+data(iris)
+dataset <- iris
+```
+The dataset is available in R, therefore as per the code above, I retrieved it directly from R. However, the dataset is also available online in .data format that needs to be converted into csv format first and then can be uploaded into R using read_csv.
+
+```{r sampling, echo=FALSE}
+
+# creating 80% rows for training and 20% rows for validation
+validation_index <- createDataPartition(dataset$Species, p=0.80, list=FALSE)
+
+# select 20% of the data for validation
+validation <- dataset[-validation_index,]
+
+# use the remaining 80% of data to training and testing the models
+dataset <- dataset[validation_index,]
+```
+
+Below is the description of the training dataset::
+
+```{r dim, echo}
+# dimensions of dataset
+dim(dataset)
+```
+
+Dataset has 120 rows and 5 columns
+```{r sapply, echo}
+sapply(dataset, class)
+```
+
+We can see that all the input features are numeric and the output "species" is a factor
+```{r peak, echo}
+head(dataset)
+```
+Here is the first few rows of the dataset
+
+```{r categories, echo}
+levels(dataset$Species)
+```
+output variable is a "factor" and this code chunk explains different categories of output. This is multiclassification problem i.e our model needs to predict the output out of many possible options
+
+```{r input, echo}
+percentage <- prop.table(table(dataset$Species)) * 100
+cbind(freq=table(dataset$Species), percentage=percentage)
+```
+We can see that our training dataset has equal number of input variables for each expected output
+
+```{r summary, echo}
+summary(dataset)
+```
+
+One interesting observation here is that all the instances are in the same range and in the same unit. In a real world dataset, we may need to look these values carefully as data preprocessing may be needed if the input variables are not in the same unit or may have anomalies. 
+
+
+Below are the plots:
+```{r visualization, echo=FALSE}
+
+# split input and output
+x <- dataset[,1:4]
+y <- dataset[,5]
+
+# boxplot for each attribute on one image
+par(mfrow=c(1,4))
+  for(i in 1:4) {
+  boxplot(x[,i], main=names(iris)[i])
+}
+
+```
+```{r plots, echo=FALSE}
+# barplot for class breakdown
+plot(y)
+```
+
+plot for every feature:
+```{r featureplot, echo=FALSE}
+# box and whisker plots for each attribute
+featurePlot(x=x, y=y, plot="box")
+```
+
+Density plot:
+```{r densityplot, echo=FALSE}
+# density plots for each attribute by class value
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+featurePlot(x=x, y=y, plot="density", scales=scales)
+```
+
+Dividing and training our dataset on 10 partitions. This will split our dataset into 10 parts, train in 9 and test on 1 and release for all combinations of train-test splits. We will also repeat the process 3 times for each algorithm with different splits of the data into 10 groups, in an effort to get a more accurate estimate
+```{r train_partition, echo=FALSE}
+# Run algorithms using 10-fold cross validation
+control <- trainControl(method="cv", number=10)
+metric <- "Accuracy"
+```
+
+evaluating 5 different algorithms:
+
+1. Linear Discriminant Analysis (LDA)
+2. Classification and Regression Trees (CART).
+3. k-Nearest Neighbors (kNN).
+4. Support Vector Machines (SVM) with a linear kernel.
+5. Random Forest (RF)
+
+```{r LDA}
+# a) linear algorithms
+set.seed(7)
+fit.lda <- train(Species~., data=dataset, method="lda", metric=metric, trControl=control)
+```
+Linear Discriminant Analysis is a linear classification technique. It consists of statistical properties of the provided data, calculated for each class. For a single input variable (x) this is the mean and the variance of the variable for each class. For multiple variables, this is the same properties calculated over the multivariate Gaussian, namely the means and the covariance matrix.
+
+These statistical properties are estimated from the data and plug into the LDA equation to make predictions. These are the model values that you would save to file for your model.
+
+```{r cart}
+# b) nonlinear algorithms
+# CART
+set.seed(7)
+fit.cart <- train(Species~., data=dataset, method="rpart", metric=metric, trControl=control)
+```
+Cart is a predictive model, which explains how an outcome variable's values can be predicted based on other values. A CART output is a decision tree where each fork is a split in a predictor variable and each end node contains a prediction for the outcome variable. Creating a CART model involves selecting input variables and split points on those variables until a suitable tree is constructed.
+
+The selection of which input variable to use and the specific split or cut-point is chosen using a greedy algorithm to minimize a cost function. Tree construction ends using a predefined stopping criterion, such as a minimum number of training instances assigned to each leaf node of the tree.
+
+```{r knn}
+# kNN
+set.seed(7)
+fit.knn <- train(Species~., data=dataset, method="knn", metric=metric, trControl=control)
+```
+
+The KNN algorithm assumes that similar things exist in close proximity. KNN algorithm hinges on this assumption. KNN captures the idea of similarity by calculating the distance between points or input instances.
+```{r svm}
+# c) advanced algorithms
+# SVM
+set.seed(7)
+fit.svm <- train(Species~., data=dataset, method="svmRadial", metric=metric, trControl=control)
+```
+
+Support vector machines (SVMs) are a set of supervised learning methods used for classification, regression and outliers detection. SVC implements the “one-versus-one” approach for multi-class classification. In total, n_classes * (n_classes - 1) / 2 classifiers are constructed and trains data from two classes. To provide a consistent interface with other classifiers, the decision_function_shape option allows to monotonically transform the results of the “one-versus-one” classifiers to a “one-vs-rest” decision function of shape (n_samples, n_classes)
+
+```{r random_forest}
+# Random Forest
+set.seed(7)
+fit.rf <- train(Species~., data=dataset, method="rf", metric=metric, trControl=control)
+
+```
+
+Random decision forests are an ensemble learning method for classification, regression and other tasks that operates by constructing a multitude of decision trees at training time. For classification tasks, the output of the random forest is the class selected by most trees. Random forests are a way of averaging multiple deep decision trees, trained on different parts of the same training set, with the goal of reducing the variance. 
+
+
+Reporting the accuracy of each model by first creating a list of the created models and using the summary function
+```{r accuracy}
+
+# summarize accuracy of models
+results <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm, rf=fit.rf))
+summary(results)
+
+```
+
+Plotting the accuracy of models
+```{r plot_accuracy, echo=FALSE}
+# compare accuracy of models
+dotplot(results)
+```
+We can see that the most accurate model in this case was LDA.
+
+Summarizing results for the LDA model:
+
+```{r summarize_output}
+# summarize Best Model
+print(fit.lda)
+```
+
+Using LDA on the validation dataset to predict the species:
+```{r validation, echo=FALSE}
+# estimate skill of LDA on the validation dataset
+predictions <- predict(fit.lda, validation)
+confusionMatrix(predictions, validation$Species)
+```
+
